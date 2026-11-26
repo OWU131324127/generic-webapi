@@ -158,25 +158,36 @@
         }
 
         const data = await res.json();
+        console.log("サーバーからの応答 data:", data);
 
-        // サーバーから返った中身を取り出す（data.data / data.result / data.response / data 自体のどれか）
-        const rawPayload = data.data ?? data.result ?? data.response ?? data;
+        // サーバーから返った中身を取り出す（ネストされている場合も考慮）
+        const rawPayload =
+          data?.data ??
+          data?.result ??
+          data?.response ??
+          data?.text ??
+          data?.content ??
+          data;
 
-        // 文字列なら JSON.parse() し、すでに配列やオブジェクトならそのまま使う
-        let parsed = typeof rawPayload === "string"
-          ? JSON.parse(extractJsonText(rawPayload))
-          : rawPayload;
+        // 文字列なら余計な前置きや ```json を除いてから JSON.parse() する
+        let parsed;
+        if (typeof rawPayload === "string") {
+          const cleaned = extractJsonText(rawPayload);
+          parsed = JSON.parse(cleaned);
+        } else {
+          parsed = rawPayload;
+        }
 
-        // もし配列（[ { headline: ... } ]）で返ってきたら先頭要素を取り出す
+        // 配列で返ってきた場合は先頭要素を取り出す
         if (Array.isArray(parsed)) {
           parsed = parsed[0] || {};
         }
 
         renderDiagnosis(parsed);
       } catch (err) {
-        console.error(err);
+        console.error("診断エラー詳細:", err);
         resultArea.innerHTML =
-          '<p class="error">診断結果の読み込み（JSON.parse）に失敗しました。プロンプトやサーバーの応答形式を確認してください。</p>';
+          `<p class="error">読み込みエラー：${err.message}</p>`;
       } finally {
         submitBtn.disabled = false;
       }
