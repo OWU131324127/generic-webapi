@@ -3,290 +3,438 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f7f2e9" />
   <title>今夜の夜食・グルメ診断</title>
   <style>
+    :root {
+      color-scheme: light;
+      --ink: #2c2824;
+      --muted: #777067;
+      --paper: #fffdfa;
+      --canvas: #f7f2e9;
+      --line: #e9e1d5;
+      --accent: #a9472b;
+      --accent-dark: #77331f;
+      --accent-soft: #f8e8dc;
+      --green: #55705a;
+      --shadow: 0 18px 50px rgba(62, 43, 28, .08);
+    }
+
+    * { box-sizing: border-box; }
+
     body {
-      font-family: sans-serif;
-      max-width: 720px;
-      margin: 32px auto;
-      padding: 0 16px;
-      line-height: 1.6;
-      background-color: #faf7f2;
-      color: #222222;
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse at 85% 2%, rgba(228, 189, 142, .25), transparent 35rem),
+        var(--canvas);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+      line-height: 1.7;
     }
-    h1 {
-      margin-bottom: 8px;
-    }
-    .form-box, .card, .sub-card {
-      background-color: #ffffff;
-      border: 1px solid #dddddd;
-      border-radius: 10px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .field {
+
+    button, input, select { font: inherit; }
+    .page { width: min(100% - 32px, 880px); margin: 0 auto; padding: 50px 0 72px; }
+
+    .hero { margin: 0 0 28px; }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
       margin-bottom: 12px;
+      color: var(--accent);
+      font-size: .76rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
     }
-    label {
-      display: block;
-      font-weight: bold;
-      margin-bottom: 4px;
+    .eyebrow::before { content: ""; width: 24px; height: 1px; background: currentColor; }
+    h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.25rem); line-height: 1.2; letter-spacing: -.055em; }
+    .hero p { max-width: 620px; margin: 14px 0 0; color: var(--muted); }
+
+    .panel {
+      border: 1px solid rgba(233, 225, 213, .9);
+      border-radius: 20px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
     }
+    .form-panel { padding: clamp(20px, 4vw, 32px); }
+    .section-heading { margin: 0 0 18px; font-size: 1rem; font-weight: 800; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 20px; }
+    .field-wide { grid-column: 1 / -1; }
+    label { display: block; margin: 0 0 7px; font-size: .88rem; font-weight: 750; }
+    .field-hint { margin: -2px 0 8px; color: var(--muted); font-size: .78rem; }
     select, input {
+      display: block;
       width: 100%;
-      padding: 8px 10px;
-      font-size: 15px;
-      border: 1px solid #bbbbbb;
-      border-radius: 6px;
-      box-sizing: border-box;
+      min-height: 48px;
+      padding: 10px 13px;
+      border: 1px solid #dcd3c7;
+      border-radius: 10px;
+      outline: none;
+      background: #fff;
+      color: var(--ink);
+      transition: border-color .18s ease, box-shadow .18s ease;
     }
+    select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(169, 71, 43, .12); }
+    input::placeholder { color: #aaa197; }
+
+    .form-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 22px; }
+    .privacy-note { margin: 0; color: var(--muted); font-size: .78rem; }
     button {
-      background-color: #d96b27;
-      color: #ffffff;
-      border: none;
-      border-radius: 6px;
-      padding: 10px 18px;
-      font-size: 15px;
-      font-weight: bold;
+      display: inline-flex;
+      min-height: 48px;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 11px 22px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
       cursor: pointer;
+      transition: background .18s ease, transform .18s ease;
     }
-    button:hover {
-      background-color: #b85519;
+    button:hover { background: var(--accent-dark); transform: translateY(-1px); }
+    button:focus-visible { outline: 3px solid rgba(169, 71, 43, .3); outline-offset: 3px; }
+    button:disabled { opacity: .7; cursor: wait; transform: none; }
+    .button-icon { font-size: 1.1rem; }
+
+    #resultArea { margin-top: 30px; }
+    .loading, .error-panel { padding: 18px 20px; border-radius: 12px; }
+    .loading { display: flex; align-items: center; gap: 12px; background: #fff8ef; color: var(--accent-dark); }
+    .spinner { width: 18px; height: 18px; border: 2px solid #eacbb8; border-top-color: var(--accent); border-radius: 50%; animation: spin .75s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-panel { border: 1px solid #f0c6c1; background: #fff6f4; color: #922d24; }
+
+    .result-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 0 0 14px; }
+    .result-heading h2 { margin: 0; font-size: clamp(1.35rem, 3vw, 1.8rem); letter-spacing: -.03em; }
+    .result-heading p { margin: 0; color: var(--muted); font-size: .82rem; }
+    .criteria { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 253, 250, .7); }
+    .criteria-label { width: 100%; color: var(--muted); font-size: .75rem; font-weight: 750; letter-spacing: .04em; }
+    .pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-dark); font-size: .8rem; font-weight: 700; }
+    .pill.condition { background: #edf1e9; color: #435c48; }
+
+    .recommendation { overflow: hidden; padding: clamp(22px, 4vw, 34px); }
+    .recommendation-top { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; color: var(--accent); font-size: .76rem; font-weight: 850; letter-spacing: .1em; }
+    .recommendation-top span:first-child { display: inline-grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: var(--accent-soft); font-size: .9rem; }
+    .recommendation h3 { margin: 0; font-size: clamp(1.55rem, 4vw, 2.25rem); line-height: 1.35; letter-spacing: -.04em; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 13px; }
+    .meta .pill { background: #f2eee8; color: #62584e; }
+    .reason { margin: 18px 0 0; color: #514a43; }
+    .reason-label { color: var(--accent-dark); font-weight: 800; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 24px; }
+    .detail-block { padding: 17px; border-radius: 12px; background: #faf7f1; }
+    .detail-block h4 { margin: 0 0 9px; font-size: .88rem; }
+    .detail-block ul, .detail-block ol { margin: 0; padding-left: 1.25rem; color: #514a43; font-size: .9rem; }
+    .detail-block li + li { margin-top: 5px; }
+    .tip { margin: 14px 0 0; padding: 12px 15px; border-left: 3px solid #c9854f; border-radius: 0 9px 9px 0; background: #fff8ef; color: #604a37; font-size: .9rem; }
+    .extra-details { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 11px; }
+    .extra-details h4 { margin: 0 0 8px; font-size: .85rem; }
+    .extra-details dl { display: grid; grid-template-columns: minmax(100px, .35fr) 1fr; gap: 5px 12px; margin: 0; font-size: .86rem; }
+    .extra-details dt { color: var(--muted); font-weight: 700; }
+    .extra-details dd { margin: 0; overflow-wrap: anywhere; }
+
+    .alternatives { margin-top: 24px; }
+    .alternatives h3 { margin: 0 0 12px; font-size: 1.05rem; }
+    .candidate-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+    .candidate { padding: 17px 18px; border: 1px solid var(--line); border-radius: 13px; background: var(--paper); }
+    .candidate h4 { margin: 0; font-size: 1rem; }
+    .candidate .candidate-style { margin: 5px 0 0; color: var(--muted); font-size: .78rem; }
+    .candidate .candidate-reason { margin: 8px 0 0; color: #514a43; font-size: .87rem; }
+
+    @media (max-width: 620px) {
+      .page { width: min(100% - 24px, 880px); padding-top: 30px; }
+      .form-grid, .detail-grid { grid-template-columns: 1fr; }
+      .field-wide { grid-column: auto; }
+      .form-footer { align-items: stretch; flex-direction: column-reverse; }
+      .form-footer button { width: 100%; }
+      .result-heading { align-items: start; flex-direction: column; gap: 2px; }
+      .extra-details dl { grid-template-columns: 1fr; gap: 0; }
+      .extra-details dd { margin-bottom: 8px; }
     }
-    .error {
-      color: #b00020;
-      font-weight: bold;
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
     }
   </style>
 </head>
 <body>
-  <h1>今夜の夜食・グルメ診断</h1>
-  <p>今の気分やスタイルを入力すると、AIが今夜ぴったりの夜食・グルメを提案します。</p>
+  <main class="page">
+    <header class="hero">
+      <div class="eyebrow">Tonight's comfort food</div>
+      <h1>今夜の夜食・グルメ診断</h1>
+      <p>今の気分と食べ方に合わせて、今夜ちょうどいい一品を見つけます。</p>
+    </header>
 
-  <form id="diagnosisForm" class="form-box">
-    <div class="field">
-      <label for="mood">今の気分・状態</label>
-      <select id="mood" name="mood">
-        <option value="疲れて癒やされたい">疲れて癒やされたい</option>
-        <option value="ガッツリ食べたい">ガッツリ食べたい</option>
-        <option value="さっぱりしたい">さっぱりしたい</option>
-        <option value="ちょっとしたご褒美">ちょっとしたご褒美</option>
-      </select>
-    </div>
+    <form id="diagnosisForm" class="panel form-panel">
+      <h2 class="section-heading">今夜の気分を教えてください</h2>
+      <div class="form-grid">
+        <div>
+          <label for="mood">今の気分・状態</label>
+          <select id="mood" name="mood">
+            <option value="疲れて癒やされたい">疲れて癒やされたい</option>
+            <option value="ガッツリ食べたい">ガッツリ食べたい</option>
+            <option value="さっぱりしたい">さっぱりしたい</option>
+            <option value="ちょっとしたご褒美">ちょっとしたご褒美</option>
+          </select>
+        </div>
+        <div>
+          <label for="style">調達・作り方のスタイル</label>
+          <select id="style" name="style">
+            <option value="コンビニで買う">コンビニで買う</option>
+            <option value="家にあるもので簡単">家にあるもので簡単</option>
+            <option value="少しこだわって作る">少しこだわって作る</option>
+            <option value="温かい飲み物・スイーツ系">温かい飲み物・スイーツ系</option>
+          </select>
+        </div>
+        <div class="field-wide">
+          <label for="condition">細かい条件・好み・NG</label>
+          <p class="field-hint">アレルギーや避けたい食材、使える時間なども入力できます。</p>
+          <input id="condition" name="condition" type="text" placeholder="例：辛いものは控えめ、洗い物を減らしたい、10分以内" />
+        </div>
+      </div>
+      <div class="form-footer">
+        <p class="privacy-note">入力内容に合わせて、今夜の候補を提案します。</p>
+        <button id="submitBtn" type="submit"><span class="button-icon" aria-hidden="true">✦</span><span>今夜のおすすめを見る</span></button>
+      </div>
+    </form>
 
-    <div class="field">
-      <label for="style">調達・作り方のスタイル</label>
-      <select id="style" name="style">
-        <option value="コンビニで買う">コンビニで買う</option>
-        <option value="家にあるもので簡単">家にあるもので簡単</option>
-        <option value="少しこだわって作る">少しこだわって作る</option>
-        <option value="温かい飲み物・スイーツ系">温かい飲み物・スイーツ系</option>
-      </select>
-    </div>
-
-    <div class="field">
-      <label for="condition">細かい条件・好み・NG</label>
-      <input
-        id="condition"
-        name="condition"
-        type="text"
-        placeholder="例：辛いものは控えめ、洗い物を減らしたい、10分以内"
-      />
-    </div>
-
-    <button id="submitBtn" type="submit">診断する</button>
-  </form>
-
-  <div id="resultArea"></div>
+    <section id="resultArea" aria-live="polite" aria-busy="false"></section>
+  </main>
 
   <script>
     const form = document.getElementById("diagnosisForm");
     const submitBtn = document.getElementById("submitBtn");
     const resultArea = document.getElementById("resultArea");
 
-    // AIが ```json ... ``` などで囲んで返した場合も取り除いてJSON文字列にする補助関数
-    function extractJsonText(raw) {
-      if (typeof raw !== "string") {
-        return JSON.stringify(raw);
-      }
+    function parseJsonText(raw) {
+      if (typeof raw !== "string") return raw;
       const trimmed = raw.trim();
-      if (trimmed.startsWith("```")) {
-        return trimmed
-          .replace(/^```(?:json)?\s*/i, "")
-          .replace(/\s*```$/, "")
-          .trim();
-      }
-      return trimmed;
+      const withoutFence = trimmed
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/, "")
+        .trim();
+      return JSON.parse(withoutFence);
     }
 
-    // server.js のレスポンス形式に合わせてAIの出力テキストを取り出す関数
-    function pickResponseText(data) {
-      if (typeof data === "string") return data;
-      if (typeof data.response === "string") return data.response;
-      if (typeof data.result === "string") return data.result;
-      if (typeof data.text === "string") return data.text;
-      if (typeof data.message === "string") return data.message;
-      return JSON.stringify(data);
+    function unwrapPayload(payload) {
+      let value = payload;
+      for (let depth = 0; depth < 5; depth += 1) {
+        if (typeof value === "string") {
+          try {
+            value = parseJsonText(value);
+          } catch (_) {
+            return { mainRecommendation: { title: value.trim() || "おすすめを受け取れませんでした" } };
+          }
+          continue;
+        }
+
+        if (Array.isArray(value)) return value;
+        if (!value || typeof value !== "object") return value;
+
+        const hasRecommendation = value.mainRecommendation || value.recommendation || value.headline || value.recommendations || value.subOptions;
+        if (Array.isArray(value.data)) return { ...value, data: value.data };
+        if (value.data !== undefined && !hasRecommendation && (typeof value.data === "string" || Array.isArray(value.data) || (value.data && typeof value.data === "object"))) {
+          value = value.data;
+          continue;
+        }
+        return value;
+      }
+      return value;
+    }
+
+    function firstValue(object, keys) {
+      for (const key of keys) {
+        const value = object?.[key];
+        if (value !== undefined && value !== null && String(value).trim() !== "") return value;
+      }
+      return "";
+    }
+
+    function makeElement(tag, className, text) {
+      const element = document.createElement(tag);
+      if (className) element.className = className;
+      if (text !== undefined && text !== null) element.textContent = String(text);
+      return element;
+    }
+
+    function printable(value) {
+      if (Array.isArray(value)) return value.map(printable).filter(Boolean).join("、");
+      if (value && typeof value === "object") {
+        return Object.entries(value).map(([key, child]) => `${key}: ${printable(child)}`).filter(Boolean).join(" / ");
+      }
+      return value === undefined || value === null ? "" : String(value);
+    }
+
+    function getCandidateList(parsed) {
+      if (Array.isArray(parsed)) return parsed;
+      if (!parsed || typeof parsed !== "object") return [];
+      for (const key of ["data", "recommendations", "options", "candidates"]) {
+        if (Array.isArray(parsed[key])) return parsed[key];
+      }
+      if (Array.isArray(parsed.items) && parsed.items.some((item) => item && typeof item === "object" && (item.title || item.name))) return parsed.items;
+      return [];
+    }
+
+    function addListBlock(parent, headingText, values, ordered) {
+      if (!Array.isArray(values) || values.length === 0) return;
+      const block = makeElement("section", "detail-block");
+      block.appendChild(makeElement("h4", "", headingText));
+      const list = document.createElement(ordered ? "ol" : "ul");
+      values.forEach((value) => {
+        const item = makeElement("li", "", printable(value));
+        list.appendChild(item);
+      });
+      block.appendChild(list);
+      parent.appendChild(block);
+    }
+
+    function addExtraFields(parent, object, knownKeys) {
+      if (!object || typeof object !== "object" || Array.isArray(object)) return;
+      const entries = Object.entries(object).filter(([key, value]) => !knownKeys.has(key) && value !== undefined && value !== null && value !== "");
+      if (!entries.length) return;
+      const details = makeElement("section", "extra-details");
+      details.appendChild(makeElement("h4", "", "そのほかの情報"));
+      const list = document.createElement("dl");
+      entries.forEach(([key, value]) => {
+        list.appendChild(makeElement("dt", "", key));
+        list.appendChild(makeElement("dd", "", printable(value)));
+      });
+      details.appendChild(list);
+      parent.appendChild(details);
+    }
+
+    function renderCriteria(criteria) {
+      const section = makeElement("div", "criteria");
+      section.appendChild(makeElement("span", "criteria-label", "今回の診断条件"));
+      section.appendChild(makeElement("span", "pill", `気分：${criteria.mood}`));
+      section.appendChild(makeElement("span", "pill", `スタイル：${criteria.style}`));
+      section.appendChild(makeElement("span", "pill condition", `細かい条件：${criteria.condition}`));
+      return section;
+    }
+
+    function renderCandidateCard(item) {
+      const candidate = item && typeof item === "object" ? item : { title: printable(item) };
+      const card = makeElement("article", "candidate");
+      const title = firstValue(candidate, ["title", "name", "menu", "recommendation"]);
+      card.appendChild(makeElement("h4", "", title || "メニュー候補"));
+      const style = firstValue(candidate, ["style", "approach", "category"]);
+      if (style) card.appendChild(makeElement("p", "candidate-style", `スタイル：${printable(style)}`));
+      const reason = firstValue(candidate, ["shortReason", "reason", "description", "summary"]);
+      if (reason) card.appendChild(makeElement("p", "candidate-reason", printable(reason)));
+      addExtraFields(card, candidate, new Set([
+        "title", "name", "menu", "recommendation", "style", "approach", "category",
+        "shortReason", "reason", "description", "summary"
+      ]));
+      return card;
+    }
+
+    function renderDiagnosis(parsed, criteria) {
+      resultArea.replaceChildren();
+      const list = getCandidateList(parsed);
+      const object = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+      const main = object.mainRecommendation || object.recommendation || list[0] || (Object.keys(object).length ? object : {});
+      const headline = firstValue(object, ["headline", "message"]) || "今夜のおすすめ";
+
+      const heading = makeElement("div", "result-heading");
+      heading.appendChild(makeElement("h2", "", headline));
+      heading.appendChild(makeElement("p", "", "あなたの気分に合わせて選びました"));
+      resultArea.appendChild(heading);
+      resultArea.appendChild(renderCriteria(criteria));
+
+      const card = makeElement("article", "panel recommendation");
+      const recommendationTop = makeElement("div", "recommendation-top");
+      recommendationTop.appendChild(makeElement("span", "", "✦"));
+      recommendationTop.appendChild(makeElement("span", "", "TONIGHT'S PICK"));
+      card.appendChild(recommendationTop);
+
+      const title = firstValue(main, ["title", "name", "menu", "recommendation"]);
+      card.appendChild(makeElement("h3", "", title || "おすすめメニュー"));
+
+      const style = firstValue(main, ["style", "approach", "category"]);
+      const minutes = firstValue(main, ["estimatedMinutes", "minutes", "time"]);
+      if (style || minutes) {
+        const meta = makeElement("div", "meta");
+        if (style) meta.appendChild(makeElement("span", "pill", `スタイル：${printable(style)}`));
+        if (minutes) meta.appendChild(makeElement("span", "pill", `目安：約${printable(minutes)}分`));
+        card.appendChild(meta);
+      }
+
+      const reason = firstValue(main, ["reason", "shortReason", "description", "summary"]);
+      if (reason) {
+        const reasonParagraph = makeElement("p", "reason");
+        reasonParagraph.appendChild(makeElement("span", "reason-label", "おすすめの理由　"));
+        reasonParagraph.appendChild(document.createTextNode(printable(reason)));
+        card.appendChild(reasonParagraph);
+      }
+
+      const details = makeElement("div", "detail-grid");
+      addListBlock(details, "食材・買うもの", firstValue(main, ["itemsOrIngredients", "ingredients", "items"]), false);
+      addListBlock(details, "作り方・楽しみ方", firstValue(main, ["stepsOrHowToGet", "steps", "instructions"]), true);
+      if (details.childElementCount) card.appendChild(details);
+
+      const tip = firstValue(main, ["tip", "servingTip", "アレンジ"]);
+      if (tip) card.appendChild(makeElement("p", "tip", `ひと工夫：${printable(tip)}`));
+
+      const knownMainKeys = new Set([
+        "title", "name", "menu", "recommendation", "style", "approach", "category",
+        "estimatedMinutes", "minutes", "time", "reason", "shortReason", "description", "summary",
+        "itemsOrIngredients", "ingredients", "items", "stepsOrHowToGet", "steps", "instructions",
+        "tip", "servingTip", "アレンジ"
+      ]);
+      addExtraFields(card, main, knownMainKeys);
+      resultArea.appendChild(card);
+
+      const alternatives = list.length > 1 ? list.slice(1) : (Array.isArray(object.subOptions) ? object.subOptions : []);
+      if (alternatives.length) {
+        const section = makeElement("section", "alternatives");
+        section.appendChild(makeElement("h3", "", "ほかの候補"));
+        const candidates = makeElement("div", "candidate-list");
+        alternatives.forEach((item) => candidates.appendChild(renderCandidateCard(item)));
+        section.appendChild(candidates);
+        resultArea.appendChild(section);
+      }
+
+      const knownTopKeys = new Set(["headline", "message", "title", "data", "recommendations", "options", "candidates", "items", "mainRecommendation", "recommendation", "subOptions"]);
+      addExtraFields(resultArea, object, knownTopKeys);
     }
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-
-      const mood = document.getElementById("mood").value;
-      const style = document.getElementById("style").value;
-      const condition = document.getElementById("condition").value.trim() || "特になし";
+      const criteria = {
+        mood: document.getElementById("mood").value,
+        style: document.getElementById("style").value,
+        condition: document.getElementById("condition").value.trim() || "特になし"
+      };
 
       submitBtn.disabled = true;
-      resultArea.innerHTML = "<p>AIが今夜の夜食を診断中です...</p>";
+      resultArea.setAttribute("aria-busy", "true");
+      resultArea.replaceChildren();
+      const loading = makeElement("div", "loading");
+      loading.appendChild(makeElement("span", "spinner"));
+      loading.appendChild(makeElement("span", "", "今夜のメニューを考えています…"));
+      resultArea.appendChild(loading);
 
       try {
-        // generic-webapi の POST /api/ に変数を送信
-        const res = await fetch("/api/", {
+        const response = await fetch("/api/", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            mood,
-            style,
-            condition
-          })
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mood: criteria.mood, style: criteria.style, condition: criteria.condition })
         });
 
-        if (!res.ok) {
-          throw new Error(`HTTPエラー: ${res.status}`);
-        }
-
-        const data = await res.json();
-        console.log("サーバーからの応答 data:", data);
-
-        // サーバーから返った中身を取り出す（ネストされている場合も考慮）
-        const rawPayload =
-          data?.data ??
-          data?.result ??
-          data?.response ??
-          data?.text ??
-          data?.content ??
-          data;
-
-        // 文字列なら余計な前置きや ```json を除いてから JSON.parse() する
-        let parsed;
-        if (typeof rawPayload === "string") {
-          const cleaned = extractJsonText(rawPayload);
-          parsed = JSON.parse(cleaned);
-        } else {
-          parsed = rawPayload;
-        }
-
-        // 配列で返ってきた場合は先頭要素を取り出す
-        if (Array.isArray(parsed)) {
-          parsed = parsed[0] || {};
-        }
-
-        renderDiagnosis(parsed);
-      } catch (err) {
-        console.error("診断エラー詳細:", err);
-        resultArea.innerHTML =
-          `<p class="error">読み込みエラー：${err.message}</p>`;
+        if (!response.ok) throw new Error(`診断に失敗しました（HTTP ${response.status}）。時間をおいてもう一度お試しください。`);
+        const responseData = await response.json();
+        const parsed = unwrapPayload(responseData);
+        renderDiagnosis(parsed, criteria);
+      } catch (error) {
+        resultArea.replaceChildren();
+        resultArea.appendChild(makeElement("p", "error-panel", error.message || "診断結果を読み込めませんでした。もう一度お試しください。"));
       } finally {
+        resultArea.setAttribute("aria-busy", "false");
         submitBtn.disabled = false;
       }
     });
-
-    function renderDiagnosis(parsed) {
-      resultArea.innerHTML = "";
-
-      const headlineEl = document.createElement("h2");
-      headlineEl.textContent = parsed.headline || "診断結果";
-      resultArea.appendChild(headlineEl);
-
-      const main = parsed.mainRecommendation || {};
-      const mainCard = document.createElement("section");
-      mainCard.className = "card";
-
-      const titleEl = document.createElement("h3");
-      titleEl.textContent = `おすすめ：${main.title || "未設定"}`;
-      mainCard.appendChild(titleEl);
-
-      const metaEl = document.createElement("p");
-      const minutesText =
-        typeof main.estimatedMinutes === "number"
-          ? ` / 目安：約${main.estimatedMinutes}分`
-          : "";
-      metaEl.textContent = `スタイル：${main.style || "-"}${minutesText}`;
-      mainCard.appendChild(metaEl);
-
-      if (main.reason) {
-        const reasonEl = document.createElement("p");
-        reasonEl.textContent = `理由：${main.reason}`;
-        mainCard.appendChild(reasonEl);
-      }
-
-      if (Array.isArray(main.itemsOrIngredients) && main.itemsOrIngredients.length > 0) {
-        const itemsHeading = document.createElement("h4");
-        itemsHeading.textContent = "必要な食材・買うもの";
-        mainCard.appendChild(itemsHeading);
-
-        const itemsUl = document.createElement("ul");
-        main.itemsOrIngredients.forEach((item) => {
-          const li = document.createElement("li");
-          li.textContent = item;
-          itemsUl.appendChild(li);
-        });
-        mainCard.appendChild(itemsUl);
-      }
-
-      if (Array.isArray(main.stepsOrHowToGet) && main.stepsOrHowToGet.length > 0) {
-        const stepsHeading = document.createElement("h4");
-        stepsHeading.textContent = "作り方・楽しみ方の手順";
-        mainCard.appendChild(stepsHeading);
-
-        const stepsOl = document.createElement("ol");
-        main.stepsOrHowToGet.forEach((step) => {
-          const li = document.createElement("li");
-          li.textContent = step;
-          stepsOl.appendChild(li);
-        });
-        mainCard.appendChild(stepsOl);
-      }
-
-      if (main.tip) {
-        const tipEl = document.createElement("p");
-        tipEl.textContent = `ひと工夫：${main.tip}`;
-        mainCard.appendChild(tipEl);
-      }
-
-      resultArea.appendChild(mainCard);
-
-      if (Array.isArray(parsed.subOptions) && parsed.subOptions.length > 0) {
-        const subHeading = document.createElement("h3");
-        subHeading.textContent = "ほかの候補";
-        resultArea.appendChild(subHeading);
-
-        parsed.subOptions.forEach((sub) => {
-          const subCard = document.createElement("div");
-          subCard.className = "sub-card";
-
-          const subTitle = document.createElement("strong");
-          subTitle.textContent = sub.title || "候補メニュー";
-          subCard.appendChild(subTitle);
-
-          if (sub.style) {
-            const subStyle = document.createElement("div");
-            subStyle.textContent = `スタイル：${sub.style}`;
-            subCard.appendChild(subStyle);
-          }
-
-          if (sub.shortReason) {
-            const subReason = document.createElement("div");
-            subReason.textContent = sub.shortReason;
-            subCard.appendChild(subReason);
-          }
-
-          resultArea.appendChild(subCard);
-        });
-      }
-    }
   </script>
 </body>
 </html>
