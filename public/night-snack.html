@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>今夜の夜食・グルメ診断</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 720px;
+      margin: 32px auto;
+      padding: 0 16px;
+      line-height: 1.6;
+      background-color: #faf7f2;
+      color: #222222;
+    }
+    h1 {
+      margin-bottom: 8px;
+    }
+    .form-box, .card, .sub-card {
+      background-color: #ffffff;
+      border: 1px solid #dddddd;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .field {
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    select, input {
+      width: 100%;
+      padding: 8px 10px;
+      font-size: 15px;
+      border: 1px solid #bbbbbb;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #d96b27;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 18px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #b85519;
+    }
+    .error {
+      color: #b00020;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>今夜の夜食・グルメ診断</h1>
+  <p>今の気分やスタイルを入力すると、AIが今夜ぴったりの夜食・グルメを提案します。</p>
+
+  <form id="diagnosisForm" class="form-box">
+    <div class="field">
+      <label for="mood">今の気分・状態</label>
+      <select id="mood" name="mood">
+        <option value="疲れて癒やされたい">疲れて癒やされたい</option>
+        <option value="ガッツリ食べたい">ガッツリ食べたい</option>
+        <option value="さっぱりしたい">さっぱりしたい</option>
+        <option value="ちょっとしたご褒美">ちょっとしたご褒美</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="style">調達・作り方のスタイル</label>
+      <select id="style" name="style">
+        <option value="コンビニで買う">コンビニで買う</option>
+        <option value="家にあるもので簡単">家にあるもので簡単</option>
+        <option value="少しこだわって作る">少しこだわって作る</option>
+        <option value="温かい飲み物・スイーツ系">温かい飲み物・スイーツ系</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="condition">細かい条件・好み・NG</label>
+      <input
+        id="condition"
+        name="condition"
+        type="text"
+        placeholder="例：辛いものは控えめ、洗い物を減らしたい、10分以内"
+      />
+    </div>
+
+    <button id="submitBtn" type="submit">診断する</button>
+  </form>
+
+  <div id="resultArea"></div>
+
+  <script>
+    const form = document.getElementById("diagnosisForm");
+    const submitBtn = document.getElementById("submitBtn");
+    const resultArea = document.getElementById("resultArea");
+
+    // AIが ```json ... ``` などで囲んで返した場合も取り除いてJSON文字列にする補助関数
+    function extractJsonText(raw) {
+      if (typeof raw !== "string") {
+        return JSON.stringify(raw);
+      }
+      const trimmed = raw.trim();
+      if (trimmed.startsWith("```")) {
+        return trimmed
+          .replace(/^```(?:json)?\s*/i, "")
+          .replace(/\s*```$/, "")
+          .trim();
+      }
+      return trimmed;
+    }
+
+    // server.js のレスポンス形式に合わせてAIの出力テキストを取り出す関数
+    function pickResponseText(data) {
+      if (typeof data === "string") return data;
+      if (typeof data.response === "string") return data.response;
+      if (typeof data.result === "string") return data.result;
+      if (typeof data.text === "string") return data.text;
+      if (typeof data.message === "string") return data.message;
+      return JSON.stringify(data);
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const mood = document.getElementById("mood").value;
+      const style = document.getElementById("style").value;
+      const condition = document.getElementById("condition").value.trim() || "特になし";
+
+      submitBtn.disabled = true;
+      resultArea.innerHTML = "<p>AIが今夜の夜食を診断中です...</p>";
+
+      try {
+        // generic-webapi の POST /api/ に変数を送信
+        const res = await fetch("/api/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            mood,
+            style,
+            condition
+          })
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTPエラー: ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        // サーバーから返った中身を取り出す（data.data / data.result / data.response / data 自体のどれか）
+        const rawPayload = data.data ?? data.result ?? data.response ?? data;
+
+        // 文字列なら JSON.parse() し、すでに配列やオブジェクトならそのまま使う
+        let parsed = typeof rawPayload === "string"
+          ? JSON.parse(extractJsonText(rawPayload))
+          : rawPayload;
+
+        // もし配列（[ { headline: ... } ]）で返ってきたら先頭要素を取り出す
+        if (Array.isArray(parsed)) {
+          parsed = parsed[0] || {};
+        }
+
+        renderDiagnosis(parsed);
+      } catch (err) {
+        console.error(err);
+        resultArea.innerHTML =
+          '<p class="error">診断結果の読み込み（JSON.parse）に失敗しました。プロンプトやサーバーの応答形式を確認してください。</p>';
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    function renderDiagnosis(parsed) {
+      resultArea.innerHTML = "";
+
+      const headlineEl = document.createElement("h2");
+      headlineEl.textContent = parsed.headline || "診断結果";
+      resultArea.appendChild(headlineEl);
+
+      const main = parsed.mainRecommendation || {};
+      const mainCard = document.createElement("section");
+      mainCard.className = "card";
+
+      const titleEl = document.createElement("h3");
+      titleEl.textContent = `おすすめ：${main.title || "未設定"}`;
+      mainCard.appendChild(titleEl);
+
+      const metaEl = document.createElement("p");
+      const minutesText =
+        typeof main.estimatedMinutes === "number"
+          ? ` / 目安：約${main.estimatedMinutes}分`
+          : "";
+      metaEl.textContent = `スタイル：${main.style || "-"}${minutesText}`;
+      mainCard.appendChild(metaEl);
+
+      if (main.reason) {
+        const reasonEl = document.createElement("p");
+        reasonEl.textContent = `理由：${main.reason}`;
+        mainCard.appendChild(reasonEl);
+      }
+
+      if (Array.isArray(main.itemsOrIngredients) && main.itemsOrIngredients.length > 0) {
+        const itemsHeading = document.createElement("h4");
+        itemsHeading.textContent = "必要な食材・買うもの";
+        mainCard.appendChild(itemsHeading);
+
+        const itemsUl = document.createElement("ul");
+        main.itemsOrIngredients.forEach((item) => {
+          const li = document.createElement("li");
+          li.textContent = item;
+          itemsUl.appendChild(li);
+        });
+        mainCard.appendChild(itemsUl);
+      }
+
+      if (Array.isArray(main.stepsOrHowToGet) && main.stepsOrHowToGet.length > 0) {
+        const stepsHeading = document.createElement("h4");
+        stepsHeading.textContent = "作り方・楽しみ方の手順";
+        mainCard.appendChild(stepsHeading);
+
+        const stepsOl = document.createElement("ol");
+        main.stepsOrHowToGet.forEach((step) => {
+          const li = document.createElement("li");
+          li.textContent = step;
+          stepsOl.appendChild(li);
+        });
+        mainCard.appendChild(stepsOl);
+      }
+
+      if (main.tip) {
+        const tipEl = document.createElement("p");
+        tipEl.textContent = `ひと工夫：${main.tip}`;
+        mainCard.appendChild(tipEl);
+      }
+
+      resultArea.appendChild(mainCard);
+
+      if (Array.isArray(parsed.subOptions) && parsed.subOptions.length > 0) {
+        const subHeading = document.createElement("h3");
+        subHeading.textContent = "ほかの候補";
+        resultArea.appendChild(subHeading);
+
+        parsed.subOptions.forEach((sub) => {
+          const subCard = document.createElement("div");
+          subCard.className = "sub-card";
+
+          const subTitle = document.createElement("strong");
+          subTitle.textContent = sub.title || "候補メニュー";
+          subCard.appendChild(subTitle);
+
+          if (sub.style) {
+            const subStyle = document.createElement("div");
+            subStyle.textContent = `スタイル：${sub.style}`;
+            subCard.appendChild(subStyle);
+          }
+
+          if (sub.shortReason) {
+            const subReason = document.createElement("div");
+            subReason.textContent = sub.shortReason;
+            subCard.appendChild(subReason);
+          }
+
+          resultArea.appendChild(subCard);
+        });
+      }
+    }
+  </script>
+</body>
+</html>
